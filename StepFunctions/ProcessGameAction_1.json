@@ -1,0 +1,26 @@
+{
+  "Comment": "HandyBot Analysis Pipeline",
+  "StartAt": "ProcessGameAction",
+  "States": {
+    "ProcessGameAction": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:REGION:ACCOUNT_ID:function:ProcessGameAction",
+      "Next": "UpdatePlayerStats"
+    },
+    "UpdatePlayerStats": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:REGION:ACCOUNT_ID:function:UpdatePlayerStats",
+      "Next": "RunOpponentAnalysis"
+    },
+    "RunOpponentAnalysis": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:REGION:ACCOUNT_ID:function:RunOpponentAnalysis",
+      "Next": "NotifyFrontEnd"
+    },
+    "NotifyFrontEnd": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:REGION:ACCOUNT_ID:function:NotifyFrontEnd",
+      "End": true
+    }
+  }
+}
