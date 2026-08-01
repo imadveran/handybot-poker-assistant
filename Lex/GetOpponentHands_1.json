@@ -1,0 +1,26 @@
+{
+  "name": "GetOpponentHands",
+  "sampleUtterances": [
+    "What hands could player {PlayerNumber} have?",
+    "Show me hands for player {PlayerNumber} on {GameStage}"
+  ],
+  "slots": [
+    {
+      "name": "PlayerNumber",
+      "slotType": "AMAZON.NUMBER",
+      "slotConstraint": "Required"
+    },
+    {
+      "name": "GameStage",
+      "slotType": "GameStages", 
+      "slotConstraint": "Required"
+    }
+  ],
+  "fulfillmentActivity": {
+    "type": "CodeHook",
+    "codeHook": {
+      "uri": "arn:aws:lambda:REGION:ACCOUNT_ID:function:HandyBotProcessor",
+      "messageVersion": "1.0"
+    }
+  }
+}
