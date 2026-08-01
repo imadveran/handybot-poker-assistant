@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: HandyBot poker assistant using Amazon Lex V2 and AWS Lambda
+
+Parameters:
+  BotName:
+    Type: String
+    Default: HandyBot
+
+Resources:
+  FulfillmentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${BotName}-fulfillment'
+      CodeUri: src/
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      Architectures: [arm64]
+      MemorySize: 128
+      Timeout: 5
+      Tracing: Active
+      Policies:
+        - AWSLambdaBasicExecutionRole
+
+  LexServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lexv2.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LexLogging
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: '*'
+
+  PokerBot:
+    Type: AWS::Lex::Bot
+    Properties:
+      Name: !Ref BotName
+      Description: Conversational poker hand-range assistant
+      RoleArn: !GetAtt LexServiceRole.Arn
+      DataPrivacy: {ChildDirected: false}
+      IdleSessionTTLInSeconds: 300
+      AutoBuildBotLocales: true
+      BotLocales:
+        - LocaleId: en_US
+          Description: US English
+          NluConfidenceThreshold: 0.40
+          SlotTypes:
+            - Name: GameStages
+              Description: Supported Texas Hold'em stages
+              SlotTypeValues:
+                - SampleValue: {Value: preflop}
+                - SampleValue: {Value: flop}
+                - SampleValue: {Value: turn}
+                - SampleValue: {Value: river}
+              ValueSelectionSetting: {ResolutionStrategy: OriginalValue}
+          Intents:
+            - Name: GetOpponentHands
+              Description: Estimates a broad illustrative opponent range
+              SampleUtterances:
+                - Utterance: What hands could player {PlayerNumber} have
+                - Utterance: Show me hands for player {PlayerNumber} on the {GameStage}
+                - Utterance: What is player {PlayerNumber} representing at the {GameStage}
+              Slots:
+                - Name: PlayerNumber
+                  Priority: 1
+                  SlotTypeName: AMAZON.Number
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MaxRetries: 2
+                      MessageGroupsList:
+                        - Message: {PlainTextMessage: {Value: "Which player number?"}}
+                - Name: GameStage
+                  Priority: 2
+                  SlotTypeName: GameStages
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MaxRetries: 2
+                      MessageGroupsList:
+                        - Message: {PlainTextMessage: {Value: "Preflop, flop, turn, or river?"}}
+              FulfillmentCodeHook: {Enabled: true}
+            - Name: FallbackIntent
+              ParentIntentSignature: AMAZON.FallbackIntent
+
+  BotVersion:
+    Type: AWS::Lex::BotVersion
+    Properties:
+      BotId: !Ref PokerBot
+      BotVersionLocaleSpecification:
+        - LocaleId: en_US
+          BotVersionLocaleDetails: {SourceBotVersion: DRAFT}
+      Description: Initial deployable version
+
+  BotAlias:
+    Type: AWS::Lex::BotAlias
+    Properties:
+      BotId: !Ref PokerBot
+      BotAliasName: live
+      BotVersion: !GetAtt BotVersion.BotVersion
+      BotAliasLocaleSettings:
+        - LocaleId: en_US
+          BotAliasLocaleSetting:
+            Enabled: true
+            CodeHookSpecification:
+              LambdaCodeHook:
+                CodeHookInterfaceVersion: '1.0'
+                LambdaArn: !GetAtt FulfillmentFunction.Arn
+
+  LexInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FulfillmentFunction
+      Principal: lexv2.amazonaws.com
+      SourceArn: !Sub 'arn:${AWS::Partition}:lex:${AWS::Region}:${AWS::AccountId}:bot-alias/${PokerBot}/${BotAlias}'
+
+Outputs:
+  BotId:
+    Value: !Ref PokerBot
+  BotAliasId:
+    Value: !Ref BotAlias
+  LambdaArn:
+    Value: !GetAtt FulfillmentFunction.Arn
