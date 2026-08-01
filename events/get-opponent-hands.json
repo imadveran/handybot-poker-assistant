@@ -1,0 +1,14 @@
+{
+  "sessionState": {
+    "dialogAction": {"type": "FulfillIntent"},
+    "intent": {
+      "name": "GetOpponentHands",
+      "state": "ReadyForFulfillment",
+      "slots": {
+        "PlayerNumber": {"value": {"interpretedValue": "3", "originalValue": "three"}},
+        "GameStage": {"value": {"interpretedValue": "turn", "originalValue": "turn"}}
+      }
+    }
+  }
+}
+
